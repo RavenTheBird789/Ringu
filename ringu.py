@@ -36,8 +36,11 @@ def trademark(main):
     def wrapper():
         title = "Ringu"
         author = "By: RavenTheBird789"
+        version = "1.0.0"
         ring_art()
         print(red(f"{title:^20}"))
+        print(blue("-" * 19))
+        print(f"{version:^19}")
         print(blue("-" * 19))
         print(bold(red(f"{author:^18}")))
         print(blue("-" * 19) + "\n")
@@ -88,21 +91,29 @@ def discover_wifi_devices(interface, duration=30, output=None):
         except Exception:
             rssi = None
 
+        if mac_addr is None:
+            return
+
+        matched = False
+
         for mac_oui in mac_oui_list:
-            if (mac_oui in mac_addr):
-                found_any = True
-                print(green("Ring Device Detected!"))
-                print(f"MAC: {mac_addr}  Name: {ssid}  RSSI: {rssi}  Channel: {channel}\n")
-        if ("Ring" in ssid):
+            if mac_oui in mac_addr:
+                matched = True
+                break
+
+        if ssid is not None and "Ring" in ssid:
+            matched = True
+
+        if matched:
             found_any = True
             print(green("Ring Device Detected!"))
-            print(f"MAC: {mac_addr}  Name: {ssid}  RSSI: {rssi}  Channel: {channel}\n")            
+            print(f"MAC: {mac_addr}  Name: {ssid}  RSSI: {rssi}  Channel: {channel}\n")
             results.append({
                 "mac_addr": mac_addr,
                 "ssid": ssid,
                 "rssi": rssi,
                 "channel": channel,
-            })       
+            })
         else:
             return
 
