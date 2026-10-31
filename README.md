@@ -6,7 +6,7 @@ Requirements:
 * `scapy` for Wi-Fi scanning (can be installed from requirements.txt)
 * A wireless adapter that supports monitor mode for Wi-Fi scanning already switched into monitor mode (ex: `sudo airmon-ng start wlan0`)
 * Root privileges for Wi-Fi packet capture
-* A Linux OS or VM (The current version of Ringu isn't supported Windows or MacOS)
+* A Linux OS or VM (The current version of Ringu isn't supported by Windows or MacOS)
 
 Installation & setup
 
