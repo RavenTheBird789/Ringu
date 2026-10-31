@@ -109,7 +109,7 @@ def discover_wifi_devices(interface, duration=30, output=None):
     sniff(iface=interface, prn=handle_packet, timeout=duration, store=False)
 
     if not found_any:
-        print(red(f"[!] No matching devices found within {duration} seconds."))
+        print(red(f"[!] No ring devices found within {duration} seconds."))
     elif output:
         with open(output, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=["mac_addr", "ssid", "rssi", "channel"])
