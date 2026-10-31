@@ -4,7 +4,7 @@ Ring device detection tool
 Requirements:
 * Ensure that the latest version of python is installed in your terminal (python 3.9+)
 * `scapy` for Wi-Fi scanning (can be installed from requirements.txt)
-* A wireless adapter that supports monitor mode for Wi-Fi scanning, already switched into monitor mode (ex: `sudo airmon-ng start wlan0`)
+* A wireless adapter that supports monitor mode for Wi-Fi scanning already switched into monitor mode (ex: `sudo airmon-ng start wlan0`)
 * Root privileges for Wi-Fi packet capture
 * A Linux OS or VM (The current version of Ringu isn't supported Windows or MacOS)
 
