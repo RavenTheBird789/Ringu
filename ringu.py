@@ -36,7 +36,7 @@ def trademark(main):
     def wrapper():
         title = "Ringu"
         author = "By: RavenTheBird789"
-        version = "1.0.0"
+        version = "1.1.0"
         ring_art()
         print(red(f"{title:^20}"))
         print(blue("-" * 19))
@@ -47,25 +47,33 @@ def trademark(main):
         main()
     return wrapper
 
+def is_ring_mac(mac_addr):
+    """Check a MAC address against the known Ring OUI list."""
+    if mac_addr is None:
+        return False
+    return any(oui in mac_addr for oui in mac_oui_list)
+
 def discover_wifi_devices(interface, duration=30, output=None):
     """
-    Passively discover nearby WiFi devices (APs) via beacon/probe-response frames.
+    Passively discover nearby Ring devices via:
+      1. Beacon/probe-response frames (AP-mode, e.g. Ring in setup mode)
+      2. Data frame MAC headers (client-mode, e.g. Ring already on a network)
+
+    802.11 MAC headers are never encrypted, even under WPA2 — so client MACs
+    in data frames are visible without needing to decrypt anything.
 
     Args:
         interface (str): WiFi adapter in monitor mode (e.g. 'wlan0mon')
         duration (int): how long to scan, in seconds (default 30)
+        output (str): optional path to export results as CSV
     """
     found_any = False
     results = []
+    seen_macs = set()
 
-    def handle_packet(pkt):
+    def handle_ap_frame(pkt):
+        """Beacon / probe-response: AP-mode Ring devices (e.g. setup mode)."""
         nonlocal found_any
-
-        if not pkt.haslayer(Dot11):
-            return
-
-        if not (pkt.haslayer(Dot11Beacon) or pkt.haslayer(Dot11ProbeResp)):
-            return
 
         mac_addr = pkt[Dot11].addr2
         ssid = None
@@ -94,28 +102,70 @@ def discover_wifi_devices(interface, duration=30, output=None):
         if mac_addr is None:
             return
 
-        matched = False
-
-        for mac_oui in mac_oui_list:
-            if mac_oui in mac_addr:
-                matched = True
-                break
-
+        matched = is_ring_mac(mac_addr)
         if ssid is not None and "Ring" in ssid:
             matched = True
 
-        if matched:
+        if matched and mac_addr not in seen_macs:
+            seen_macs.add(mac_addr)
             found_any = True
-            print(green("Ring Device Detected!"))
+            print(green("Ring Device Detected! (AP mode)"))
             print(f"MAC: {mac_addr}  Name: {ssid}  RSSI: {rssi}  Channel: {channel}\n")
             results.append({
                 "mac_addr": mac_addr,
                 "ssid": ssid,
                 "rssi": rssi,
                 "channel": channel,
+                "source": "beacon/probe-resp",
             })
+
+    def handle_data_frame(pkt):
+        """
+        Data frame: client-mode Ring devices (already connected to a network).
+        The client MAC lives in addr1 or addr2 depending on to-DS/from-DS flags.
+        """
+        nonlocal found_any
+
+        dot11 = pkt[Dot11]
+        to_ds = dot11.FCfield & 0x1 != 0
+        from_ds = dot11.FCfield & 0x2 != 0
+
+        if to_ds and not from_ds:
+            client_mac = dot11.addr2
+        elif from_ds and not to_ds:
+            client_mac = dot11.addr1
         else:
             return
+
+        try:
+            rssi = pkt.dBm_AntSignal
+        except Exception:
+            rssi = None
+
+        if client_mac is None:
+            return
+
+        if is_ring_mac(client_mac) and client_mac not in seen_macs:
+            seen_macs.add(client_mac)
+            found_any = True
+            print(green("Ring Device Detected! (connected client)"))
+            print(f"MAC: {client_mac}  RSSI: {rssi}\n")
+            results.append({
+                "mac_addr": client_mac,
+                "ssid": None,
+                "rssi": rssi,
+                "channel": None,
+                "source": "data-frame",
+            })
+
+    def handle_packet(pkt):
+        if not pkt.haslayer(Dot11):
+            return
+
+        if pkt.haslayer(Dot11Beacon) or pkt.haslayer(Dot11ProbeResp):
+            handle_ap_frame(pkt)
+        elif pkt.type == 2:  # Data frame
+            handle_data_frame(pkt)
 
     sniff(iface=interface, prn=handle_packet, timeout=duration, store=False)
 
@@ -123,7 +173,7 @@ def discover_wifi_devices(interface, duration=30, output=None):
         print(red(f"[!] No ring devices found within {duration} seconds."))
     elif output:
         with open(output, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["mac_addr", "ssid", "rssi", "channel"])
+            writer = csv.DictWriter(f, fieldnames=["mac_addr", "ssid", "rssi", "channel", "source"])
             writer.writeheader()
             writer.writerows(results)
         print(f"[*] Exported {len(results)} devices to {output}")
@@ -131,7 +181,7 @@ def discover_wifi_devices(interface, duration=30, output=None):
 @trademark
 def main():
     ap = argparse.ArgumentParser(
-        description="Passive WiFi scanner - discovers nearby APs via beacon/probe-response frames.",
+        description="Passive WiFi scanner - discovers nearby Ring devices via AP beacons and client data frames.",
         epilog="Example: sudo python3 ringu.py --wifi-iface wlan0mon -d 20 -o scan.csv"
     )
     ap.add_argument("-d", "--duration", type=int, default=30,
