@@ -39,7 +39,7 @@ Options
 --channels         Comma-separated list of channels to hop (ex: 1,6,11). Overrides auto-detection
 ````
 
-Example:
+Examples:
 
 ````bash
 # 20 second scan with CSV export
